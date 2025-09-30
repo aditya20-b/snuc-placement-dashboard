@@ -1,0 +1,302 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Event {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  category    EventCategory @default(OTHER)
+  link        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("events")
+}
+
+enum EventCategory {
+  PLACEMENT
+  EXAM
+  INFO_SESSION
+  OA
+  INTERVIEW
+  DEADLINE
+  OTHER
+}
+
+enum JobType {
+  SUMMER_INTERN
+  REGULAR_INTERN
+  INTERNSHIP
+  FTE
+  INTERN_PLUS_FTE
+  INTERN_LEADS_TO_FTE
+  BOTH
+}
+
+enum JobCategory {
+  MARQUE              // 20L+ CTC
+  DREAM               // 6-10L CTC
+  SUPER_DREAM         // 10-20L CTC
+  REGULAR             // 0-3.9L CTC
+  CORE
+  OTHER
+}
+
+enum JobStatus {
+  OPEN                  // Accepting applications
+  IN_PROGRESS          // Hiring process ongoing
+  APPLICATIONS_CLOSED  // No longer accepting applications
+  ON_HOLD              // Temporarily paused
+  COMPLETED            // Hiring completed successfully
+  CANCELLED            // Job cancelled
+  CLOSED               // Completely closed
+}
+
+enum GenderRequirement {
+  MALE
+  FEMALE
+  BOTH
+  ANY
+}
+
+enum ModeOfVisit {
+  PHYSICAL
+  ONLINE
+  HYBRID
+}
+
+model Job {
+  id           String             @id @default(cuid())
+  company      String
+  title        String
+  description  String?            @db.Text
+  aboutCompany String?            @db.Text
+
+  // Compensation
+  ctc          String?
+  stipend      String?
+
+  // Job Details
+  type         JobType            @default(FTE)
+  category     JobCategory        @default(OTHER)
+  status       JobStatus          @default(OPEN)
+  location     String?
+  link         String?
+
+  // Dates
+  applyBy      DateTime?
+  dateOfVisit  DateTime?
+  hiringStartsOn DateTime?
+
+  // Visit Details
+  modeOfVisit  ModeOfVisit?
+
+  // Eligibility Criteria
+  minCGPA      Float?
+  min10thPercentage    Float?
+  min12thPercentage    Float?
+  minDiplomaPercentage Float?
+  minSemPercentage     Float?
+  maxCurrentArrears    Int?              @default(0)
+  maxHistoryArrears    Int?              @default(0)
+  genderRequirement    GenderRequirement @default(ANY)
+  eligibilityBranches  String?           // e.g., "CSE/IT/ECE/EEE"
+  otherEligibility     String?           @db.Text
+
+  // Point of Contact
+  pocName      String?
+  pocEmail     String?
+  pocPhone     String?
+
+  // System
+  notAppliedPointsDeduct Int?            @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  // Relations
+  workflowStages JobWorkflowStage[]
+  attachments    JobAttachment[]
+  notices        JobNotice[]
+  logs           JobLog[]
+  placements     StudentPlacement[]
+
+  @@map("jobs")
+}
+
+model JobWorkflowStage {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  stageName   String   // e.g., "Pre Placement Talk"
+  stageType   String   // e.g., "PRE_PLACEMENT_TALK", "TEST", "GROUP_DISCUSSION"
+  orderIndex  Int      // Order of the stage
+  description String?  @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("job_workflow_stages")
+}
+
+model JobAttachment {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  fileName    String
+  fileUrl     String   // URL or path to the file
+  fileType    String?  // e.g., "pdf", "doc", "image"
+  fileSize    Int?     // Size in bytes
+  uploadedBy  String?  // Admin who uploaded
+
+  createdAt   DateTime @default(now())
+
+  @@map("job_attachments")
+}
+
+model JobNotice {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  title       String
+  content     String   @db.Text
+  isImportant Boolean  @default(false)
+  createdBy   String?  // Admin who created
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("job_notices")
+}
+
+model JobLog {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  action      String   // e.g., "CREATED", "UPDATED", "STATUS_CHANGED"
+  description String   @db.Text
+  performedBy String?  // Admin who performed the action
+  metadata    Json?    // Additional data about the action
+
+  createdAt   DateTime @default(now())
+
+  @@map("job_logs")
+}
+
+model PlacementStat {
+  id              String   @id @default(cuid())
+  year            Int      // Academic year
+  totalOffers     Int      @default(0)
+  avgCTC          String?  // Cached avg CTC
+  highestCTC      String?
+  topRecruiters   Json?    // Array of {company, count}
+  categoryStats   Json?    // Stats by category
+  updatedAt       DateTime @updatedAt
+
+  @@unique([year])
+  @@map("placement_stats")
+}
+
+enum PlacementStatus {
+  OPTED_IN           // Student is participating in placements
+  OPTED_OUT          // Student is not participating
+  HIGHER_STUDIES     // Student opted for higher studies
+  PLACED             // Student has been placed (can sit for <=2x if CTC <=6L)
+  PLACED_FINAL       // Student placed and not eligible for more
+}
+
+model Student {
+  id          String   @id @default(cuid())
+
+  // Personal Information
+  name        String
+  rollNumber  String   @unique
+  email       String?
+  mobile      String?
+
+  // Academic Details
+  department  String   // e.g., "BTech AIDS", "BTech CSE (CS)"
+  batch       String   // e.g., "2022-2026", "2026"
+  section     String?  // e.g., "A", "B"
+  cgpa        Float?
+  historyOfArrears String?  // Track arrear history as string
+  currentArrears   Int?     @default(0)
+
+  // Placement Status
+  placementStatus  PlacementStatus @default(OPTED_IN)
+
+  // Placement Eligibility Rule: If CTC <= 6L, can sit for <=2x companies
+  canSitForMore    Boolean         @default(true)
+
+  // Final/Current Placement (after accepting an offer)
+  finalPlacedCompany    String?
+  finalPlacedJobTitle   String?
+  finalPlacedCTC        String?      // Used to determine if can sit for more
+  finalPlacedJobType    String?      // Store as string for flexibility
+  finalPlacedDate       DateTime?
+
+  // Relations
+  placements  StudentPlacement[]  // Track all offers received
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("students")
+}
+
+model StudentPlacement {
+  id          String   @id @default(cuid())
+
+  // Student Reference
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Job Reference
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // Placement Details
+  company     String
+  jobTitle    String
+  ctc         String?
+  stipend     String?
+  jobType     String?  // Store as string
+  offerDate   DateTime?
+
+  // Offer Status
+  offerStatus String   @default("PENDING")  // PENDING, ACCEPTED, REJECTED
+  isAccepted  Boolean  @default(false)
+
+  // Additional Notes
+  notes       String?  @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("student_placements")
+}
