@@ -5,17 +5,18 @@ import { requireAuth } from '@/lib/auth'
 // PUT /api/students/[id]/placements/[placementId] - Update placement status (accept/reject)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; placementId: string } }
+  { params }: { params: Promise<{ id: string; placementId: string }> }
 ) {
   try {
     await requireAuth()
 
+    const { id, placementId } = await params
     const body = await request.json()
     const { offerStatus, isAccepted, notes } = body
 
     // Get the placement to access CTC
     const placement = await prisma.studentPlacement.findUnique({
-      where: { id: params.placementId },
+      where: { id: placementId },
     })
 
     if (!placement) {
@@ -27,7 +28,7 @@ export async function PUT(
 
     // Update the placement
     const updatedPlacement = await prisma.studentPlacement.update({
-      where: { id: params.placementId },
+      where: { id: placementId },
       data: {
         offerStatus: offerStatus || placement.offerStatus,
         isAccepted: isAccepted !== undefined ? isAccepted : placement.isAccepted,
@@ -45,7 +46,7 @@ export async function PUT(
       const canSitForMore = ctcValue <= 6
 
       await prisma.student.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           placementStatus: canSitForMore ? 'PLACED' : 'PLACED_FINAL',
           canSitForMore,
@@ -71,13 +72,15 @@ export async function PUT(
 // DELETE /api/students/[id]/placements/[placementId] - Delete placement
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; placementId: string } }
+  { params }: { params: Promise<{ id: string; placementId: string }> }
 ) {
   try {
     await requireAuth()
 
+    const { placementId } = await params
+
     await prisma.studentPlacement.delete({
-      where: { id: params.placementId },
+      where: { id: placementId },
     })
 
     return NextResponse.json({ success: true })

@@ -12,7 +12,7 @@ interface SSNJobRow {
   Type: string
   CTC: string
   Stipend: string
-  'Status': string // This is the 9th column - job application status
+  'Application Status': string // This is the 9th column - job application status
   'Date Of Visit': string
 }
 

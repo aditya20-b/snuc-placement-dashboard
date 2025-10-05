@@ -78,7 +78,7 @@ export default function CalendarPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Today's Events</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Today&apos;s Events</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                   {todayEvents}
                 </p>

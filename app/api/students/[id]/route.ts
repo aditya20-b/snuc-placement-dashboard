@@ -5,11 +5,12 @@ import { requireAuth } from '@/lib/auth'
 // GET /api/students/[id] - Get single student with all placements
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const student = await prisma.student.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         placements: {
           include: {
@@ -42,11 +43,12 @@ export async function GET(
 // PUT /api/students/[id] - Update student details
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth()
 
+    const { id } = await params
     const body = await request.json()
     const {
       email,
@@ -64,7 +66,7 @@ export async function PUT(
     } = body
 
     const student = await prisma.student.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         email: email || null,
         mobile: mobile || null,

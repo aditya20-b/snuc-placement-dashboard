@@ -668,7 +668,7 @@ export function EnhancedJobForm({ job, onSuccess, onCancel }: EnhancedJobFormPro
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No workflow stages added yet. Click "Add Stage" to get started.
+                No workflow stages added yet. Click &quot;Add Stage&quot; to get started.
               </div>
             )}
           </div>

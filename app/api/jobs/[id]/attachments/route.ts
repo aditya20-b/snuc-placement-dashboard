@@ -43,18 +43,16 @@ export async function POST(
       )
     }
 
-    // Convert file to base64
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const fileData = buffer.toString('base64')
+    // For now, store a placeholder URL (in production, upload to cloud storage)
+    const fileUrl = `/uploads/jobs/${jobId}/${Date.now()}-${file.name}`
 
     const attachment = await prisma.jobAttachment.create({
       data: {
         jobId,
         fileName: file.name,
+        fileUrl,
         fileType: file.type,
         fileSize: file.size,
-        fileData,
         uploadedBy: user.username
       }
     })
@@ -70,9 +68,7 @@ export async function POST(
       }
     })
 
-    // Return without fileData to reduce response size
-    const { fileData: _, ...attachmentWithoutData } = attachment
-    return NextResponse.json(attachmentWithoutData, { status: 201 })
+    return NextResponse.json(attachment, { status: 201 })
   } catch (error) {
     console.error('Error uploading attachment:', error)
     return NextResponse.json(

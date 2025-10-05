@@ -5,11 +5,12 @@ import { requireAuth } from '@/lib/auth'
 // POST /api/students/[id]/placements - Add placement offer to student
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth()
 
+    const { id } = await params
     const body = await request.json()
     const {
       jobId,
@@ -34,7 +35,7 @@ export async function POST(
     // Create the placement
     const placement = await prisma.studentPlacement.create({
       data: {
-        studentId: params.id,
+        studentId: id,
         jobId: jobId || '',
         company,
         jobTitle,
@@ -62,7 +63,7 @@ export async function POST(
       const canSitForMore = ctcValue <= 6
 
       await prisma.student.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           placementStatus: canSitForMore ? 'PLACED' : 'PLACED_FINAL',
           canSitForMore,

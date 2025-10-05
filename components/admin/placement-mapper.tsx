@@ -64,6 +64,7 @@ export function PlacementMapper({ student, onSuccess, onCancel }: PlacementMappe
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id])
 
   const fetchData = async () => {

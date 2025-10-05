@@ -18,15 +18,12 @@ export async function GET(
       return NextResponse.json({ error: 'Attachment not found' }, { status: 404 })
     }
 
-    // Convert base64 back to buffer
-    const buffer = Buffer.from(attachment.fileData, 'base64')
-
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': attachment.fileType,
-        'Content-Disposition': `attachment; filename="${attachment.fileName}"`,
-        'Content-Length': attachment.fileSize.toString()
-      }
+    // In production, redirect to the actual file URL or serve from cloud storage
+    return NextResponse.json({
+      fileName: attachment.fileName,
+      fileUrl: attachment.fileUrl,
+      fileType: attachment.fileType,
+      fileSize: attachment.fileSize
     })
   } catch (error) {
     console.error('Error downloading attachment:', error)
