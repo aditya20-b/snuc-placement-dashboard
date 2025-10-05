@@ -8,6 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Require authentication to access student PII
+    await requireAuth()
+
     const { id } = await params
     const student = await prisma.student.findUnique({
       where: { id },

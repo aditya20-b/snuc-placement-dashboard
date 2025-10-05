@@ -36,15 +36,35 @@ export function StudentsList() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [mappingPlacementFor, setMappingPlacementFor] = useState<Student | null>(null)
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState({
+    totalCount: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('/api/students')
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '50',
+      })
+
+      if (departmentFilter) params.append('department', departmentFilter)
+      if (statusFilter) params.append('status', statusFilter)
+      if (search) params.append('search', search)
+
+      const response = await fetch(`/api/students?${params}`)
       if (!response.ok) throw new Error('Failed to fetch students')
 
       const data = await response.json()
-      setStudents(data)
-      setFilteredStudents(data)
+      setStudents(data.students)
+      setFilteredStudents(data.students)
+      setPagination({
+        totalCount: data.pagination.totalCount,
+        totalPages: data.pagination.totalPages,
+        hasMore: data.pagination.hasMore,
+      })
     } catch (error) {
       toast.error('Failed to load students')
       console.error('Error fetching students:', error)
@@ -55,30 +75,7 @@ export function StudentsList() {
 
   useEffect(() => {
     fetchStudents()
-  }, [])
-
-  useEffect(() => {
-    let filtered = students
-
-    if (search) {
-      filtered = filtered.filter(
-        s =>
-          s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.rollNumber.toLowerCase().includes(search.toLowerCase()) ||
-          s.email?.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-
-    if (departmentFilter) {
-      filtered = filtered.filter(s => s.department === departmentFilter)
-    }
-
-    if (statusFilter) {
-      filtered = filtered.filter(s => s.placementStatus === statusFilter)
-    }
-
-    setFilteredStudents(filtered)
-  }, [search, departmentFilter, statusFilter, students])
+  }, [page, departmentFilter, statusFilter, search])
 
   const handleFormSuccess = () => {
     setEditingStudent(null)
@@ -134,7 +131,7 @@ export function StudentsList() {
             Student Management
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Total: {students.length} students | Showing: {filteredStudents.length}
+            Total: {pagination.totalCount} students | Showing: {filteredStudents.length} (Page {page} of {pagination.totalPages})
           </p>
         </div>
       </div>
@@ -147,14 +144,20 @@ export function StudentsList() {
             type="text"
             placeholder="Search by name, roll number, or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1) // Reset to page 1 on search
+            }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <select
           value={departmentFilter}
-          onChange={(e) => setDepartmentFilter(e.target.value)}
+          onChange={(e) => {
+            setDepartmentFilter(e.target.value)
+            setPage(1) // Reset to page 1 on filter change
+          }}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Departments</option>
@@ -165,7 +168,10 @@ export function StudentsList() {
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value)
+            setPage(1) // Reset to page 1 on filter change
+          }}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Statuses</option>
@@ -282,6 +288,31 @@ export function StudentsList() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-4">
+          <Button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            variant="outline"
+            size="sm"
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Page {page} of {pagination.totalPages}
+          </span>
+          <Button
+            onClick={() => setPage(p => p + 1)}
+            disabled={!pagination.hasMore}
+            variant="outline"
+            size="sm"
+          >
+            Next
+          </Button>
         </div>
       )}
 

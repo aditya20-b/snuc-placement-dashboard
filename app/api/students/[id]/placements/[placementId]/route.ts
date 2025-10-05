@@ -26,6 +26,14 @@ export async function PUT(
       )
     }
 
+    // SECURITY: Verify placement belongs to the specified student (prevent IDOR)
+    if (placement.studentId !== id) {
+      return NextResponse.json(
+        { error: 'Placement not found' },
+        { status: 404 }
+      )
+    }
+
     // Update the placement
     const updatedPlacement = await prisma.studentPlacement.update({
       where: { id: placementId },
@@ -77,7 +85,26 @@ export async function DELETE(
   try {
     await requireAuth()
 
-    const { placementId } = await params
+    const { id, placementId } = await params
+
+    // SECURITY: Verify placement belongs to the specified student before deletion
+    const placement = await prisma.studentPlacement.findUnique({
+      where: { id: placementId },
+    })
+
+    if (!placement) {
+      return NextResponse.json(
+        { error: 'Placement not found' },
+        { status: 404 }
+      )
+    }
+
+    if (placement.studentId !== id) {
+      return NextResponse.json(
+        { error: 'Placement not found' },
+        { status: 404 }
+      )
+    }
 
     await prisma.studentPlacement.delete({
       where: { id: placementId },

@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin')
   const isProtectedAPI =
     (pathname.startsWith('/api/events') && request.method !== 'GET') ||
-    (pathname.startsWith('/api/jobs') && request.method !== 'GET')
+    (pathname.startsWith('/api/jobs') && request.method !== 'GET') ||
+    pathname.startsWith('/api/students') // All student endpoints require auth
 
   if (isAdminRoute || isProtectedAPI) {
     const token = request.cookies.get('auth-token')
@@ -30,5 +31,6 @@ export const config = {
     '/admin/:path*',
     '/api/events/:path*',
     '/api/jobs/:path*',
+    '/api/students/:path*',
   ],
 }
