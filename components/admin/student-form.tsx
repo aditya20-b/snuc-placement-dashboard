@@ -69,7 +69,8 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
       const response = await fetch('/api/jobs')
       if (response.ok) {
         const data = await response.json()
-        setJobs(data)
+        // API now returns { jobs, pagination }
+        setJobs(data.jobs || data)
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
