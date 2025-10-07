@@ -41,7 +41,8 @@ export function JobsList() {
       const res = await fetch('/api/jobs')
       if (!res.ok) throw new Error('Failed to fetch jobs')
       const data = await res.json()
-      setJobs(data)
+      // API now returns { jobs, pagination }
+      setJobs(data.jobs || data)
     } catch (error) {
       console.error('Error fetching jobs:', error)
       toast.error('Failed to load jobs')

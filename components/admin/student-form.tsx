@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import toast from 'react-hot-toast'
@@ -18,6 +18,20 @@ interface Student {
   currentArrears?: number | null
   placementStatus: string
   canSitForMore: boolean
+  finalPlacedCompany?: string | null
+  finalPlacedJobTitle?: string | null
+  finalPlacedCTC?: string | null
+  finalPlacedJobType?: string | null
+  finalPlacedDate?: string | null
+}
+
+interface Job {
+  id: string
+  company: string
+  title: string
+  ctc?: string | null
+  stipend?: string | null
+  type?: string | null
 }
 
 interface StudentFormProps {
@@ -33,24 +47,109 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     cgpa: student.cgpa?.toString() || '',
     currentArrears: student.currentArrears?.toString() || '0',
     placementStatus: student.placementStatus,
+    finalPlacedCompany: student.finalPlacedCompany || '',
+    finalPlacedJobTitle: student.finalPlacedJobTitle || '',
+    finalPlacedCTC: student.finalPlacedCTC || '',
+    finalPlacedJobType: student.finalPlacedJobType || '',
+    finalPlacedDate: student.finalPlacedDate ? new Date(student.finalPlacedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
   })
   const [loading, setLoading] = useState(false)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(false)
+
+  useEffect(() => {
+    if (formData.placementStatus === 'PLACED' || formData.placementStatus === 'PLACED_FINAL') {
+      fetchJobs()
+    }
+  }, [formData.placementStatus])
+
+  const fetchJobs = async () => {
+    setLoadingJobs(true)
+    try {
+      const response = await fetch('/api/jobs')
+      if (response.ok) {
+        const data = await response.json()
+        setJobs(data)
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error)
+    } finally {
+      setLoadingJobs(false)
+    }
+  }
+
+  const handleJobSelect = (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId)
+    if (job) {
+      setFormData({
+        ...formData,
+        finalPlacedCompany: job.company,
+        finalPlacedJobTitle: job.title,
+        finalPlacedCTC: job.ctc || '',
+        finalPlacedJobType: job.type || '',
+      })
+    } else {
+      setFormData({
+        ...formData,
+        finalPlacedCompany: '',
+        finalPlacedJobTitle: '',
+        finalPlacedCTC: '',
+        finalPlacedJobType: '',
+      })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate placement data if status is PLACED or PLACED_FINAL
+    if (formData.placementStatus === 'PLACED' || formData.placementStatus === 'PLACED_FINAL') {
+      if (!formData.finalPlacedCompany || !formData.finalPlacedJobTitle) {
+        toast.error('Company and job title are required for placed students')
+        return
+      }
+      if (!formData.finalPlacedCTC) {
+        toast.error('CTC is required for placed students')
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
+      const updateData: any = {
+        email: formData.email || null,
+        mobile: formData.mobile || null,
+        cgpa: formData.cgpa ? parseFloat(formData.cgpa) : null,
+        currentArrears: parseInt(formData.currentArrears) || 0,
+        placementStatus: formData.placementStatus,
+      }
+
+      // Add placement details if status is PLACED or PLACED_FINAL
+      if (formData.placementStatus === 'PLACED' || formData.placementStatus === 'PLACED_FINAL') {
+        updateData.finalPlacedCompany = formData.finalPlacedCompany
+        updateData.finalPlacedJobTitle = formData.finalPlacedJobTitle
+        updateData.finalPlacedCTC = formData.finalPlacedCTC
+        updateData.finalPlacedJobType = formData.finalPlacedJobType || null
+        updateData.finalPlacedDate = formData.finalPlacedDate ? new Date(formData.finalPlacedDate) : new Date()
+
+        // Calculate canSitForMore based on CTC
+        const ctcValue = parseFloat(formData.finalPlacedCTC.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+        updateData.canSitForMore = ctcValue <= 6
+      } else {
+        // Clear placement data if status is not PLACED/PLACED_FINAL
+        updateData.finalPlacedCompany = null
+        updateData.finalPlacedJobTitle = null
+        updateData.finalPlacedCTC = null
+        updateData.finalPlacedJobType = null
+        updateData.finalPlacedDate = null
+        updateData.canSitForMore = true
+      }
+
       const response = await fetch(`/api/students/${student.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email || null,
-          mobile: formData.mobile || null,
-          cgpa: formData.cgpa ? parseFloat(formData.cgpa) : null,
-          currentArrears: parseInt(formData.currentArrears) || 0,
-          placementStatus: formData.placementStatus,
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (!response.ok) throw new Error('Failed to update student')
@@ -184,6 +283,123 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
               </p>
             )}
           </div>
+
+          {/* Placement Details - Show when PLACED or PLACED_FINAL */}
+          {(formData.placementStatus === 'PLACED' || formData.placementStatus === 'PLACED_FINAL') && (
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Placement Details <span className="text-red-500">*</span>
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Select Job (or enter manually below)
+                </label>
+                <select
+                  onChange={(e) => handleJobSelect(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loadingJobs}
+                >
+                  <option value="">-- Select from existing jobs or enter manually --</option>
+                  {jobs.map(job => (
+                    <option key={job.id} value={job.id}>
+                      {job.company} - {job.title} {job.ctc ? `(${job.ctc})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Company <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.finalPlacedCompany}
+                    onChange={(e) => setFormData({ ...formData, finalPlacedCompany: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Company Name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Job Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.finalPlacedJobTitle}
+                    onChange={(e) => setFormData({ ...formData, finalPlacedJobTitle: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Software Engineer"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    CTC <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.finalPlacedCTC}
+                    onChange={(e) => setFormData({ ...formData, finalPlacedCTC: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="12.00 LPA"
+                    required
+                  />
+                  {formData.finalPlacedCTC && (() => {
+                    const ctcValue = parseFloat(formData.finalPlacedCTC.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+                    return ctcValue <= 6 ? (
+                      <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                        ✓ Student can sit for companies offering ≤{(ctcValue * 2).toFixed(2)} LPA
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                        Student cannot sit for more placements (CTC &gt; 6 LPA)
+                      </p>
+                    )
+                  })()}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Job Type
+                  </label>
+                  <select
+                    value={formData.finalPlacedJobType}
+                    onChange={(e) => setFormData({ ...formData, finalPlacedJobType: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Type</option>
+                    <option value="INTERNSHIP">Internship</option>
+                    <option value="FTE">Full Time</option>
+                    <option value="BOTH">Both</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Offer/Placement Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.finalPlacedDate}
+                    onChange={(e) => setFormData({ ...formData, finalPlacedDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  <strong>Note:</strong> These details will be used to update the student&apos;s final placement record. For managing multiple offers, use the &quot;Manage Placement&quot; button.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">

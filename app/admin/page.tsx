@@ -28,7 +28,9 @@ export default function AdminPage() {
         ])
 
         if (jobsRes.ok && eventsRes.ok) {
-          const jobs = await jobsRes.json()
+          const jobsData = await jobsRes.json()
+          // API now returns { jobs, pagination }
+          const jobs = jobsData.jobs || jobsData
           const events = await eventsRes.json()
 
           const now = new Date()

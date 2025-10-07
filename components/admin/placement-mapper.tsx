@@ -81,7 +81,8 @@ export function PlacementMapper({ student, onSuccess, onCancel }: PlacementMappe
 
       if (jobsRes.ok) {
         const jobsData = await jobsRes.json()
-        setJobs(jobsData)
+        // API now returns { jobs, pagination }
+        setJobs(jobsData.jobs || jobsData)
       }
     } catch (error) {
       toast.error('Failed to load placement data')
