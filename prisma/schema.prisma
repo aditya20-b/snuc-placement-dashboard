@@ -32,6 +32,10 @@ model Event {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  // Indexes for performance
+  @@index([category])
+  @@index([startTime])
+  @@index([category, startTime])
   @@map("events")
 }
 
@@ -142,6 +146,13 @@ model Job {
   logs           JobLog[]
   placements     StudentPlacement[]
 
+  // Indexes for performance
+  @@index([status])
+  @@index([category])
+  @@index([type])
+  @@index([applyBy])
+  @@index([status, category])
+  @@index([createdAt])
   @@map("jobs")
 }
 
@@ -266,6 +277,12 @@ model Student {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Indexes for performance
+  @@index([placementStatus])
+  @@index([department])
+  @@index([department, section])
+  @@index([canSitForMore])
+  @@index([placementStatus, department])
   @@map("students")
 }
 
@@ -276,9 +293,9 @@ model StudentPlacement {
   studentId   String
   student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  // Job Reference
-  jobId       String
-  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Job Reference (optional - placements can be manually entered)
+  jobId       String?
+  job         Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   // Placement Details
   company     String
@@ -298,5 +315,10 @@ model StudentPlacement {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Indexes for performance
+  @@index([studentId])
+  @@index([jobId])
+  @@index([isAccepted])
+  @@index([studentId, isAccepted])
   @@map("student_placements")
 }

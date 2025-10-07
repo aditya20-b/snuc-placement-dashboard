@@ -33,39 +33,39 @@ export async function GET() {
         },
       }),
 
-      // Placed students with details
-      prisma.student.findMany({
+      // Top recruiters using groupBy (much faster than fetching all)
+      prisma.student.groupBy({
+        by: ['finalPlacedCompany'],
         where: {
           placementStatus: {
             in: ['PLACED', 'PLACED_FINAL'],
           },
+          finalPlacedCompany: { not: null }
         },
-        select: {
-          department: true,
-          finalPlacedCompany: true,
-          finalPlacedCTC: true,
+        _count: true,
+        orderBy: {
+          _count: {
+            finalPlacedCompany: 'desc'
+          }
         },
+        take: 10
       }),
     ])
 
     // Calculate placement percentage
-    const placedCount = placedStudents.length
+    const placedCount = placementStatusBreakdown
+      .filter(item => item.placementStatus === 'PLACED' || item.placementStatus === 'PLACED_FINAL')
+      .reduce((sum, item) => sum + item._count, 0)
+
     const placementPercentage = totalStudents > 0
       ? ((placedCount / totalStudents) * 100).toFixed(2)
       : '0'
 
-    // Group placed students by company
-    const companyCounts: Record<string, number> = {}
-    placedStudents.forEach(s => {
-      if (s.finalPlacedCompany) {
-        companyCounts[s.finalPlacedCompany] = (companyCounts[s.finalPlacedCompany] || 0) + 1
-      }
-    })
-
-    const topRecruiters = Object.entries(companyCounts)
-      .map(([company, count]) => ({ company, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
+    // Format top recruiters from groupBy
+    const topRecruiters = placedStudents.map(item => ({
+      company: item.finalPlacedCompany!,
+      count: item._count
+    }))
 
     return NextResponse.json({
       totalStudents,

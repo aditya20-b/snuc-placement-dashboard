@@ -41,39 +41,59 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Get total count for pagination metadata
-    const totalCount = await prisma.student.count({ where })
+    // Parallel queries for better performance
+    const [totalCount, allDepartments, students] = await Promise.all([
+      // Total count for pagination
+      prisma.student.count({ where }),
 
-    const students = await prisma.student.findMany({
-      where,
-      skip,
-      take: limit,
-      include: {
-        placements: {
-          include: {
-            job: {
-              select: {
-                company: true,
-                title: true,
+      // Get all unique departments for filter dropdown (regardless of current filters)
+      prisma.student.findMany({
+        select: { department: true },
+        distinct: ['department'],
+        orderBy: { department: 'asc' },
+      }),
+
+      // Get students with optimized includes
+      prisma.student.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          placements: {
+            take: 5, // Limit to latest 5 placements per student
+            select: {
+              id: true,
+              company: true,
+              jobTitle: true,
+              ctc: true,
+              jobType: true,
+              offerStatus: true,
+              isAccepted: true,
+              createdAt: true,
+              job: {
+                select: {
+                  company: true,
+                  title: true,
+                },
               },
             },
+            orderBy: {
+              createdAt: 'desc',
+            },
           },
-          orderBy: {
-            createdAt: 'desc',
+          _count: {
+            select: {
+              placements: true,
+            },
           },
         },
-        _count: {
-          select: {
-            placements: true,
-          },
-        },
-      },
-      orderBy: [
-        { department: 'asc' },
-        { section: 'asc' },
-        { rollNumber: 'asc' },
-      ],
-    })
+        orderBy: [
+          { department: 'asc' },
+          { section: 'asc' },
+          { rollNumber: 'asc' },
+        ],
+      })
+    ])
 
     return NextResponse.json({
       students,
@@ -83,6 +103,9 @@ export async function GET(request: NextRequest) {
         totalCount,
         totalPages: Math.ceil(totalCount / limit),
         hasMore: skip + students.length < totalCount,
+      },
+      metadata: {
+        departments: allDepartments.map(d => d.department),
       },
     })
   } catch (error) {

@@ -3,32 +3,79 @@ import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { JobType, JobCategory, JobStatus } from '@prisma/client'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const jobs = await prisma.job.findMany({
-      orderBy: [
-        { status: 'asc' }, // OPEN first, then IN_PROGRESS, then CLOSED
-        { applyBy: 'asc' } // Earlier deadlines first
-      ],
-      include: {
-        workflowStages: {
-          orderBy: { orderIndex: 'asc' }
-        },
-        attachments: true,
-        notices: {
-          orderBy: { createdAt: 'desc' }
-        },
-        _count: {
-          select: {
-            workflowStages: true,
-            attachments: true,
-            notices: true
+    // Add pagination support
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '100') // Default to 100 jobs
+    const skip = (page - 1) * limit
+
+    // Optional filters
+    const status = searchParams.get('status')
+    const category = searchParams.get('category')
+    const type = searchParams.get('type')
+
+    const where: any = {}
+    if (status) where.status = status
+    if (category) where.category = category
+    if (type) where.type = type
+
+    // Parallel queries for count and data
+    const [totalCount, jobs] = await Promise.all([
+      prisma.job.count({ where }),
+      prisma.job.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { status: 'asc' }, // OPEN first, then IN_PROGRESS, then CLOSED
+          { applyBy: 'asc' } // Earlier deadlines first
+        ],
+        include: {
+          workflowStages: {
+            orderBy: { orderIndex: 'asc' },
+            select: {
+              id: true,
+              stageName: true,
+              stageType: true,
+              orderIndex: true
+            }
+          },
+          // Only fetch attachment metadata, not actual file data
+          attachments: {
+            select: {
+              id: true,
+              fileName: true,
+              fileType: true,
+              createdAt: true
+            }
+          },
+          notices: {
+            orderBy: { createdAt: 'desc' },
+            take: 5 // Limit to latest 5 notices
+          },
+          _count: {
+            select: {
+              workflowStages: true,
+              attachments: true,
+              notices: true
+            }
           }
         }
+      })
+    ])
+
+    return NextResponse.json({
+      jobs,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasMore: skip + jobs.length < totalCount
       }
     })
-
-    return NextResponse.json(jobs)
   } catch (error) {
     console.error('Error fetching jobs:', error)
     return NextResponse.json(
